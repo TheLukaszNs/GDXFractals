@@ -9,10 +9,10 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.celestial.onion.fractals.GDXFractals;
+import com.celestial.onion.fractals.Inspector;
 import jcuda.Pointer;
 import jcuda.Sizeof;
 import jcuda.driver.*;
-import jcuda.runtime.JCuda;
 
 import static jcuda.driver.JCudaDriver.*;
 
@@ -20,12 +20,13 @@ public class GPUSimulationScreen implements Screen {
     private GDXFractals simulation;
     private Pixmap fractalMap;
     private Texture fractalTexture;
-    Vector2 offset;
-    float minX = -2.5f;
-    float minY = -1.25f;
-    float maxX = 1.5f;
-    float maxY = 1.25f;
-    float speed = 5f;
+    double offsetX = 0;
+    double offsetY = 0;
+    double minX = -2.5;
+    double minY = -1.25;
+    double maxX = 1.5;
+    double maxY = 1.25;
+    double speed = 5;
     int maxIt = 50;
 
     CUdeviceptr deviceOutput;
@@ -36,7 +37,6 @@ public class GPUSimulationScreen implements Screen {
         this.simulation = simulation;
         fractalMap = new Pixmap(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), Pixmap.Format.RGBA8888);
         fractalMap.setFilter(Pixmap.Filter.NearestNeighbour);
-        offset = new Vector2(0, 0);
     }
 
     @Override
@@ -59,7 +59,7 @@ public class GPUSimulationScreen implements Screen {
         cuModuleGetFunction(function, module, "mandelbrot");
 
         deviceOutput = new CUdeviceptr();
-        cuMemAlloc(deviceOutput, (long) cuNumElements * Sizeof.FLOAT);
+        cuMemAlloc(deviceOutput, (long) cuNumElements * Sizeof.DOUBLE);
         generateMandelbrotTexture();
     }
 
@@ -72,16 +72,16 @@ public class GPUSimulationScreen implements Screen {
         fractalMap = new Pixmap(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), Pixmap.Format.RGBA8888);
 
         Pointer kernelParams = Pointer.to(
-                Pointer.to(new float[]{cuNumElements}),
+                Pointer.to(new int[]{cuNumElements}),
                 Pointer.to(new int[]{maxIt}),
                 Pointer.to(new int[]{800}),
                 Pointer.to(new int[]{800}),
-                Pointer.to(new float[]{minX}),
-                Pointer.to(new float[]{minY}),
-                Pointer.to(new float[]{maxX}),
-                Pointer.to(new float[]{maxY}),
-                Pointer.to(new float[]{offset.x}),
-                Pointer.to(new float[]{offset.y}),
+                Pointer.to(new double[]{minX}),
+                Pointer.to(new double[]{minY}),
+                Pointer.to(new double[]{maxX}),
+                Pointer.to(new double[]{maxY}),
+                Pointer.to(new double[]{offsetX}),
+                Pointer.to(new double[]{offsetY}),
                 Pointer.to(deviceOutput)
         );
 
@@ -95,15 +95,15 @@ public class GPUSimulationScreen implements Screen {
                 kernelParams, null
         );
 
-        float[] hostOutput = new float[cuNumElements];
-        cuMemcpyDtoH(Pointer.to(hostOutput), deviceOutput, (long) cuNumElements * Sizeof.FLOAT);
+        double[] hostOutput = new double[cuNumElements];
+        cuMemcpyDtoH(Pointer.to(hostOutput), deviceOutput, (long) cuNumElements * Sizeof.DOUBLE);
 
         for (int y = 0; y < Gdx.graphics.getHeight(); y++) {
             for (int x = 0; x < Gdx.graphics.getWidth(); x++) {
                 int i = x + y * Gdx.graphics.getWidth();
 
-                float n = hostOutput[i];
-                fractalMap.drawPixel(x, y, Color.rgba8888(1, 1, 1, n / maxIt));
+                double n = hostOutput[i];
+                fractalMap.drawPixel(x, y, Color.rgba8888(1, 1, 1, (float)n / maxIt));
             }
         }
 
@@ -119,7 +119,7 @@ public class GPUSimulationScreen implements Screen {
             maxX *= 0.95f;
             minY *= 0.95f;
             maxY *= 0.95f;
-            speed *= 1.01f;
+            speed *= 0.95;
         }
 
         if (Gdx.input.isKeyPressed(Input.Keys.NUMPAD_SUBTRACT)) {
@@ -127,23 +127,23 @@ public class GPUSimulationScreen implements Screen {
             maxX *= 1.05f;
             minY *= 1.05f;
             maxY *= 1.05f;
-            speed *= 0.99f;
+            speed *= 1.05f;
         }
 
         if (Gdx.input.isKeyPressed((Input.Keys.UP))) {
-            offset.y -= speed;
+            offsetY -= speed * delta;
         }
 
         if (Gdx.input.isKeyPressed((Input.Keys.RIGHT))) {
-            offset.x += speed;
+            offsetX += speed * delta;
         }
 
         if (Gdx.input.isKeyPressed((Input.Keys.DOWN))) {
-            offset.y += speed;
+            offsetY += speed * delta;
         }
 
         if (Gdx.input.isKeyPressed((Input.Keys.LEFT))) {
-            offset.x -= speed;
+            offsetX -= speed * delta;
         }
 
         if (Gdx.input.isKeyPressed((Input.Keys.Q))) {

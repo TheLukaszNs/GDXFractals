@@ -10,19 +10,18 @@ import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.ScreenUtils;
+import com.celestial.onion.fractals.Callable;
 import com.celestial.onion.fractals.GDXFractals;
+import com.celestial.onion.fractals.Inspector;
 import com.celestial.onion.fractals.math.ComplexNumber;
 import com.celestial.onion.fractals.math.Helpers;
 import imgui.ImGui;
-import imgui.flag.ImGuiWindowFlags;
 
 public class SimulationScreen implements Screen {
     private final int _ITERATIONS_MAX_ = 1000;
 
     private final GDXFractals simulation;
     private OrthographicCamera camera;
-
-    private int[] iterations;
 
     private Pixmap fractalMap;
     private Texture fractalTexture;
@@ -35,18 +34,12 @@ public class SimulationScreen implements Screen {
 
     private boolean showUI = true;
 
-    private float[] borderColor;
-    private float[] foregroundColor;
+    Inspector inspector;
 
     public SimulationScreen(GDXFractals simulation) {
-        iterations = new int[_ITERATIONS_MAX_];
-
-        borderColor = new float[] {
-                (float) 193/ 255, (float) 199 / 255, (float) 72 / 255, 1
-        };
-        foregroundColor = new float[] {
-                0, 0, 0, 1
-        };
+        inspector = new Inspector(new int[_ITERATIONS_MAX_],
+                new float[] {(float) 193/ 255, (float) 199 / 255,(float) 72 / 255, 1},
+                new float[] {0, 0, 0, 1});
 
         this.simulation = simulation;
 
@@ -57,23 +50,6 @@ public class SimulationScreen implements Screen {
         camera.setToOrtho(false, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
 
         generate();
-    }
-
-    public void showUi() {
-        ImGui.begin("Select parameters", ImGuiWindowFlags.NoResize);
-        ImGui.setWindowSize(400, 200);
-
-        ImGui.colorEdit4("Border Color", borderColor);
-        ImGui.colorEdit4("Foreground Color", foregroundColor);
-        ImGui.sliderInt("Iterations", iterations, 1, _ITERATIONS_MAX_);
-        ImGui.text("Use arrows to navigate the screen.");
-        ImGui.text("Use + - to zoom in and zoom out.");
-
-        if (ImGui.button("Regenerate")) {
-            generate();
-        }
-
-        ImGui.end();
     }
 
     public void generate() {
@@ -88,24 +64,24 @@ public class SimulationScreen implements Screen {
                 );
 
                 int n = 0;
-                while (n < iterations[0] && c.absoluteSquared() < 4) {
+                while (n < inspector.iterations[0] && c.absoluteSquared() < 4) {
                     c = c.multiply(c).add(p);
                     n++;
                 }
 
                 if(c.absoluteSquared() >= 4) {
                     fractalMap.drawPixel(x, y, Color.rgba8888(
-                            borderColor[0],
-                            borderColor[1],
-                            borderColor[2],
-                            (float)n / iterations[0]
+                            inspector.borderColor[0],
+                            inspector.borderColor[1],
+                            inspector.borderColor[2],
+                            (float)n / inspector.iterations[0]
                     ));
                 } else {
                     fractalMap.drawPixel(x, y, Color.rgba8888(
-                            foregroundColor[0],
-                            foregroundColor[1],
-                            foregroundColor[2],
-                            (float)n / iterations[0]
+                            inspector.foregroundColor[0],
+                            inspector.foregroundColor[1],
+                            inspector.foregroundColor[2],
+                            (float)n / inspector.iterations[0]
                     ));
                 }
 
@@ -189,7 +165,7 @@ public class SimulationScreen implements Screen {
         ImGui.newFrame();
 
         if (showUI) {
-            showUi();
+            inspector.show(this::generate);
         }
 
         ImGui.render();
